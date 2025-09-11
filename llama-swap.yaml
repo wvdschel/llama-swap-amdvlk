@@ -1,5 +1,4 @@
 # run with docker:
-# docker run --rm --name llama-swap -p 9292:8080 --device /dev/dri --volume ./llama-swap.yaml:/app/config.yaml --volume ~/.cache/llama.cpp:/home/ubuntu/.cache/llama.cpp ghcr.io/mostlygeek/llama-swap:vulkan
 # docker run --rm --name llama-swap -p 9292:8080 --device /dev/dri --volume ./llama-swap.yaml:/app/config.yaml --volume ~/.cache/llama.cpp:/cache/llama.cpp quay.io/wvdschel/llama-swap-amdvlk:latest
 
 # healthCheckTimeout: number of seconds to wait for a model to be ready to serve requests
