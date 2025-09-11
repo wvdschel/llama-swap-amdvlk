@@ -1,0 +1,13 @@
+# llama-swap.container podman quadlet for running this image when you log in
+[Container]
+AddDevice=/dev/dri
+ContainerName=llama-swap
+Group=1000
+Image=quay.io/wvdschel/llama-swap-amdvlk:latest
+PublishPort=9292:8080
+User=1000
+Volume=/home/wim/Unison/Code/llama-swap.yaml:/app/config.yaml:z
+Volume=/home/wim/.cache/llama.cpp:/cache/llama.cpp:z
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,335 @@
+# run with docker:
+# docker run --rm --name llama-swap -p 9292:8080 --device /dev/dri --volume ./llama-swap.yaml:/app/config.yaml --volume ~/.cache/llama.cpp:/home/ubuntu/.cache/llama.cpp ghcr.io/mostlygeek/llama-swap:vulkan
+# docker run --rm --name llama-swap -p 9292:8080 --device /dev/dri --volume ./llama-swap.yaml:/app/config.yaml --volume ~/.cache/llama.cpp:/cache/llama.cpp quay.io/wvdschel/llama-swap-amdvlk:latest
+
+# healthCheckTimeout: number of seconds to wait for a model to be ready to serve requests
+# - optional, default: 120
+# - minimum value is 15 seconds, anything less will be set to this value
+healthCheckTimeout: 500
+
+# logLevel: sets the logging value
+# - optional, default: info
+# - Valid log levels: debug, info, warn, error
+logLevel: info
+
+# metricsMaxInMemory: maximum number of metrics to keep in memory
+# - optional, default: 1000
+# - controls how many metrics are stored in memory before older ones are discarded
+# - useful for limiting memory usage when processing large volumes of metrics
+metricsMaxInMemory: 1000
+
+# startPort: sets the starting port number for the automatic ${PORT} macro.
+# - optional, default: 5800
+# - the ${PORT} macro can be used in model.cmd and model.proxy settings
+# - it is automatically incremented for every model that uses it
+startPort: 10001
+
+# macros: a dictionary of string substitutions
+# - optional, default: empty dictionary
+# - macros are reusable snippets
+# - used in a model's cmd, cmdStop, proxy and checkEndpoint
+# - useful for reducing common configuration settings
+macros:
+  "latest-llama": >
+    /app/llama-server
+    -hft set_your_huggingface_token_here
+    --port ${PORT}
+    --flash-attn on --cont-batching -np 1 --ubatch-size 4096 -ngl 9999
+
+# models: a dictionary of model configurations
+# - required
+# - each key is the model's ID, used in API requests
+# - model settings have default values that are used if they are not defined here
+# - below are examples of the various settings a model can have:
+# - available model settings: env, cmd, cmdStop, proxy, aliases, checkEndpoint, ttl, unlisted
+models:
+  # keys are the model names used in API requests
+  "devstral-small":
+    cmd: |
+      ${latest-llama}
+      -hf mistralai/Devstral-Small-2507_gguf
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
+    name: "Devstral Small Q8"
+
+  "ernie":
+    cmd: |
+      ${latest-llama}
+      -hf unsloth/ERNIE-4.5-21B-A3B-Thinking-GGUF:Q6_K
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+    name: "ERNIE 4.5 21B-A3B Thinking Q6"
+  
+  "gemma3":
+    cmd: |
+      ${latest-llama}
+      -hf google/gemma-3-27b-it-qat-q4_0-gguf
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+    name: "Gemma3 27B QAT"
+
+  "gpt-oss-20b":
+    cmd: |
+      ${latest-llama}
+      -hf ggml-org/gpt-oss-20b-GGUF
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+    name: "GPT-OSS 20b"
+  
+  "seed-oss-36b":
+    cmd: |
+      ${latest-llama}
+      -hf mradermacher/Seed-OSS-36B-Instruct-abliterated-GGUF:Q5_K_M -fa on -c 16000 -ctk q5_0 -ctv q5_0
+    name: "Seed-OSS 36b Q5"
+  
+  "qwen3":
+    cmd: |
+      ${latest-llama}
+      -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q6_K_XL
+      --top_p 0.8 --temp 0.7 --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
+    name: "Qwen3 30B A3B Instruct Q6"
+      
+  "qwen3-embed":
+    cmd: |
+      ${latest-llama}
+      -hf Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
+      --pooling last -ub 8192 --verbose-prompt --embeddings
+      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 0
+    name: "Qwen3 Embedding"
+  
+  "nomic-embed":
+    cmd: |
+      ${latest-llama}
+      -hf nomic-ai/nomic-embed-text-v1.5-GGUF:F16
+      --pooling last -ub 8192 --verbose-prompt
+      --ctx-size 0 --embeddings
+    name: "Qwen3 Embedding"
+      
+  "qwen2.5-coder-7b":
+    cmd: |
+      ${latest-llama}
+      -hf Qwen/Qwen2.5-Coder-7B-Instruct-GGUF:Q6_K
+      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 6192
+    name: "Qwen2.5-Coder-7B Q6"
+    filters:
+      strip_params: "suffix"
+
+  "qwen2.5-coder-3b":
+    cmd: |
+      ${latest-llama}
+      -hf Qwen/Qwen2.5-Coder-3B-Instruct-GGUF:Q8_0
+      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 6192
+    name: "Qwen2.5-Coder-3B Q8"
+    filters:
+      strip_params: "suffix"
+
+  "qwen2.5-coder-1.5b":
+    cmd: |
+      ${latest-llama}
+      -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF:Q8_0
+      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 6192
+    name: "Qwen2.5-Coder-1.5B Q8"
+    filters:
+      strip_params: "suffix"
+
+  "qwen3-rerank":
+    cmd: |
+      ${latest-llama}
+      -hf DevQuasar/Qwen.Qwen3-Reranker-0.6B-GGUF:Q8_0
+      --cache-type-v q8_0 --cache-type-k q8_0
+    name: "Qwen3 Reranker Q8"
+
+  "zerank-1-small":
+    cmd: |
+      ${latest-llama}
+      -hf mradermacher/zerank-1-small-GGUF:Q8_0
+      --cache-type-v q8_0 --cache-type-k q8_0
+    name: "Zerank 1 Small Q8"
+
+  # keys are the model names used in API requests
+  "qwen3-coder":
+    # cmd: the command to run to start the inference server.
+    # - required
+    # - it is just a string, similar to what you would run on the CLI
+    # - using `|` allows for comments in the command, these will be parsed out
+    # - macros can be used within cmd
+    cmd: |
+      ${latest-llama}
+      -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q5_K_M
+      --top_p 0.8 --temp 0.7 --cache-type-k q5_0 --cache-type-v q5_0 --ctx-size 80000
+
+    # name: a display name for the model
+    # - optional, default: empty string
+    # - if set, it will be used in the v1/models API response
+    # - if not set, it will be omitted in the JSON model record
+    name: "Qwen3-Coder-30B-A3B-Instruct-GGUF:Q5_K_M"
+
+    # description: a description for the model
+    # - optional, default: empty string
+    # - if set, it will be used in the v1/models API response
+    # - if not set, it will be omitted in the JSON model record
+    # description: ""
+
+    # env: define an array of environment variables to inject into cmd's environment
+    # - optional, default: empty array
+    # - each value is a single string
+    # - in the format: ENV_NAME=value
+    # env:
+    #  - "CUDA_VISIBLE_DEVICES=0,1,2"
+
+    # proxy: the URL where llama-swap routes API requests
+    # - optional, default: http://localhost:${PORT}
+    # - if you used ${PORT} in cmd this can be omitted
+    # - if you use a custom port in cmd this *must* be set
+    #proxy: http://127.0.0.1:8999
+
+    # aliases: alternative model names that this model configuration is used for
+    # - optional, default: empty array
+    # - aliases must be unique globally
+    # - useful for impersonating a specific model
+    # aliases:
+    #   - "gpt-4o-mini"
+    #   - "gpt-3.5-turbo"
+
+    # checkEndpoint: URL path to check if the server is ready
+    # - optional, default: /health
+    # - endpoint is expected to return an HTTP 200 response
+    # - all requests wait until the endpoint is ready or fails
+    # - use "none" to skip endpoint health checking
+    # checkEndpoint: /custom-endpoint
+
+    # ttl: automatically unload the model after ttl seconds
+    # - optional, default: 0
+    # - ttl values must be a value greater than 0
+    # - a value of 0 disables automatic unloading of the model
+    # ttl: 60
+
+    # useModelName: override the model name that is sent to upstream server
+    # - optional, default: ""
+    # - useful for when the upstream server expects a specific model name that
+    #   is different from the model's ID
+    # useModelName: "qwen:qwq"
+
+    # filters: a dictionary of filter settings
+    # - optional, default: empty dictionary
+    # - only strip_params is currently supported
+    # filters:
+      # strip_params: a comma separated list of parameters to remove from the request
+      # - optional, default: ""
+      # - useful for server side enforcement of sampling parameters
+      # - the `model` parameter can never be removed
+      # - can be any JSON key in the request body
+      # - recommended to stick to sampling parameters
+      # strip_params: "temperature, top_p, top_k"
+
+    # concurrencyLimit: overrides the allowed number of active parallel requests to a model
+    # - optional, default: 0
+    # - useful for limiting the number of active parallel requests a model can process
+    # - must be set per model
+    # - any number greater than 0 will override the internal default value of 10
+    # - any requests that exceeds the limit will receive an HTTP 429 Too Many Requests response
+    # - recommended to be omitted and the default used
+    # concurrencyLimit: 0
+
+# groups: a dictionary of group settings
+# - optional, default: empty dictionary
+# - provides advanced controls over model swapping behaviour
+# - using groups some models can be kept loaded indefinitely, while others are swapped out
+# - model IDs must be defined in the Models section
+# - a model can only be a member of one group
+# - group behaviour is controlled via the `swap`, `exclusive` and `persistent` fields
+# - see issue #109 for details
+#
+# NOTE: the example below uses model names that are not defined above for demonstration purposes
+groups:
+  # group1 works the same as the default behaviour of llama-swap where only one model is allowed
+  # to run a time across the whole llama-swap instance
+  "big":
+    # swap: controls the model swapping behaviour in within the group
+    # - optional, default: true
+    # - true : only one model is allowed to run at a time
+    # - false: all models can run together, no swapping
+    swap: true
+
+    # exclusive: controls how the group affects other groups
+    # - optional, default: true
+    # - true: causes all other groups to unload when this group runs a model
+    # - false: does not affect other groups
+    exclusive: false
+
+    # members references the models defined above
+    # required
+    members:
+      - "qwen3-coder"
+      - "qwen3"
+      - "devstral-small"
+      - "gpt-oss-20b"
+      - "ernie"
+      - "seed-oss-36b"
+      - "gemma3"
+
+    
+  "coding-autocomplete":
+    swap: true
+    exclusive: false
+    members:
+      - "qwen2.5-coder-3b"
+      - "qwen2.5-coder-7b"
+      - "qwen2.5-coder-1.5b"
+      
+  "coding-embed":
+    swap: true
+    exclusive: false
+    members:
+      - "qwen3-embed"
+      - "nomic-embed"
+      
+  "coding-rerank":
+    swap: true
+    exclusive: false
+    members:
+      - "zerank-1-small"
+      - "qwen3-rerank"
+
+  # Example:
+  # - in group2 all models can run at the same time
+  # - when a different group is loaded it causes all running models in this group to unload
+  # "group2":
+  #   swap: false
+
+    # exclusive: false does not unload other groups when a model in group2 is requested
+    # - the models in group2 will be loaded but will not unload any other groups
+    # exclusive: false
+    # members:
+    #   - "docker-llama"
+    #   - "modelA"
+    #   - "modelB"
+
+  # Example:
+  # - a persistent group, prevents other groups from unloading it
+  # "forever":
+    # persistent: prevents over groups from unloading the models in this group
+    # - optional, default: false
+    # - does not affect individual model behaviour
+    # persistent: true
+
+    # set swap/exclusive to false to prevent swapping inside the group
+    # and the unloading of other groups
+    # swap: false
+    # exclusive: false
+    # members:
+      # - "forever-modelA"
+      # - "forever-modelB"
+      # - "forever-modelc"
+
+# hooks: a dictionary of event triggers and actions
+# - optional, default: empty dictionary
+# - the only supported hook is on_startup
+hooks:
+  # on_startup: a dictionary of actions to perform on startup
+  # - optional, default: empty dictionary
+  # - the only supported action is preload
+  on_startup:
+        # preload: a list of model ids to load on startup
+        # - optional, default: empty list
+        # - model names must match keys in the models sections
+        # - when preloading multiple models at once, define a group
+        #   otherwise models will be loaded and swapped out
+    preload:
+      - "coding"
