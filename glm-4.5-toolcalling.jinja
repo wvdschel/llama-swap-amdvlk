@@ -1,0 +1,399 @@
+[gMASK]<sop>
+{%- if tools -%}
+<|system|>
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{% for tool in tools %}
+{{ tool | tojson }}
+{% endfor %}
+</tools>
+
+For each function call, output the function name and arguments within the following XML format:
+<tool_call>{function-name}
+<arg_key>{arg-key-1}</arg_key>
+<arg_value>{arg-value-1}</arg_value>
+<arg_key>{arg-key-2}</arg_key>
+<arg_value>{arg-value-2}</arg_value>
+...
+</tool_call>{%- endif -%}
+{%- macro visible_text(content) -%}
+    {%- if content is string -%}
+        {{- content }}
+    {%- elif content is iterable and content is not mapping -%}
+        {%- for item in content -%}
+            {%- if item is mapping and item.type == 'text' -%}
+                {{- item.text }}
+            {%- elif item is string -%}
+                {{- item }}
+            {%- endif -%}
+        {%- endfor -%}
+    {%- else -%}
+        {{- content }}
+    {%- endif -%}
+{%- endmacro -%}
+{%- macro mask_user_text(content) -%}
+{%- set str_user_text = content|string -%}
+{%- set str_user_text = str_user_text.replace('<think>', '<|start_of_thought|>') -%}
+{%- set str_user_text = str_user_text.replace('</think>', '<|end_of_thought|>') -%}
+{%- set str_user_text = str_user_text.replace('<tool_call>', '<|tool_calls_begin|>') -%}
+{%- set str_user_text = str_user_text.replace('</tool_call>', '<|tool_call_end|>') -%}
+{%- set str_user_text = str_user_text.replace('<arg_key>', '<|tool_call_argument_begin|>') -%}
+{%- set str_user_text = str_user_text.replace('</arg_key>', '<|tool_call_argument_end|>') -%}
+{%- set str_user_text = str_user_text.replace('<arg_value>', '<|tool_call_value_begin|>') -%}
+{%- set str_user_text = str_user_text.replace('</arg_value>', '<|tool_call_value_end|>') -%}
+{{- str_user_text -}}
+{%- endmacro -%}
+{%- set ns = namespace(last_user_index=-1, last_user_has_nothink=false) %}
+{%- for m in messages %}
+    {%- if m.role == 'user' %}
+        {%- set user_content = visible_text(m.content) -%}
+		{%- set ns.last_user_index = loop.index0 -%}
+		{%- set _clean = user_content | trim -%}
+		{%- set ns.last_user_has_nothink = _clean.endswith('/nothink') -%}
+    {%- endif %}
+{%- endfor %}
+{%- if ns.last_user_has_nothink -%}
+    {%- set enable_thinking = false -%}
+{%- endif -%}
+{# ===========================
+   JSON helpers
+   =========================== #}
+{% macro unescape_json_string(u_str) -%}
+{%- set une = namespace(buf='', s='', slen=0, consume=0, esc='') -%}
+{%- set une.s = u_str | trim -%}
+{%- if une.s.startswith('"') and une.s.endswith('"') and une.s|length >= 2 -%}
+{%- set une.slen = une.s|length - 1 -%}
+{# hex map for manual hex -> int conversion #}
+{%- set hexmap = {'0':0,'1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':7,'8':8,'9':9,'a':10,'b':11,'c':12,'d':13,'e':14,'f':15,'A':10,'B':11,'C':12,'D':13,'E':14,'F':15} -%}
+{%- for ich in range(1, une.slen) -%}
+{%- if ich >= une.consume -%}
+    {%- set uch = une.s[ich:ich+1] -%}
+    {%- if uch != '\\' -%}
+        {%- set une.buf = une.buf + uch -%}
+    {%- else -%}
+        {# found backslash, look ahead #}
+        {%- set jch = ich + 1 -%}
+        {%- if jch >= une.slen -%}
+          {%- set une.buf = une.buf + '\ufffd' -%} {# lonely backslash -> replacement #}
+        {%- else -%}
+          {%- set une.esc = une.s[jch:jch+1] -%}
+          {%- if une.esc in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't'] -%}
+            {%- if une.esc == '"' -%}{%- set outch = '"' -%}{%- elif une.esc == '\\' -%}{%- set outch = '\\' -%}
+            {%- elif une.esc == '/' -%}{%- set outch = '/' -%}{%- elif une.esc == 'b' -%}{%- set outch = '\b' -%}
+            {%- elif une.esc == 'f' -%}{%- set outch = '\f' -%}{%- elif une.esc == 'n' -%}{%- set outch = '\n' -%}
+            {%- elif une.esc == 'r' -%}{%- set outch = '\r' -%}{%- elif une.esc == 't' -%}{%- set outch = '\t' -%}
+            {%- endif -%}
+            {%- set une.buf = une.buf + outch -%}
+            {%- set une.consume = jch + 1 -%}  {# next loop ich will skip until >= une.consume #}
+          {%- elif une.esc == 'u' -%}
+            {# attempt to read up to 4 hex digits starting at jch+1 #}
+            {%- set kch = jch + 1 -%}
+            {%- set hexpart = '' -%}
+            {%- if kch < une.slen and hexpart|length < 4 and (une.s[kch:kch+1] in hexmap) -%}
+              {%- set hexpart = hexpart + une.s[kch:kch+1] -%}
+              {%- set kch = kch + 1 -%}
+            {%- endif -%}
+            {%- if kch < une.slen and hexpart|length < 4 and (une.s[kch:kch+1] in hexmap) -%}
+              {%- set hexpart = hexpart + une.s[kch:kch+1] -%}
+              {%- set kch = kch + 1 -%}
+            {%- endif -%}
+            {%- if kch < une.slen and hexpart|length < 4 and (une.s[kch:kch+1] in hexmap) -%}
+              {%- set hexpart = hexpart + une.s[kch:kch+1] -%}
+              {%- set kch = kch + 1 -%}
+            {%- endif -%}
+            {%- if kch < une.slen and hexpart|length < 4 and (une.s[kch:kch+1] in hexmap) -%}
+              {%- set hexpart = hexpart + une.s[kch:kch+1] -%}
+              {%- set kch = kch + 1 -%}
+            {%- endif -%}
+            {# hex escape not supported: minja do not support '%c'%var or '\\uXXXX'|format or var|chr #}
+            {%- if hexpart == '' -%}
+              {# no hex digits -> replacement #}
+              {%- set une.buf = une.buf + '\ufffd' -%}
+              {%- set une.consume = jch + 1 -%}
+            {%- else -%}
+              {%- set une.consume = kch -%}
+              {%- set une.buf = une.buf + '\ufffd' -%}
+            {%- endif -%}
+          {%- else -%}
+            {# unknown escape: be lenient -> drop backslash, keep next char #}
+            {%- set une.buf = une.buf + une.esc -%}
+            {%- set une.consume = jch + 1 -%}
+          {%- endif -%}
+        {%- endif -%}
+    {%- endif -%}
+{%- endif -%}
+{%- endfor -%}
+{{ une.buf }}
+{%- else -%}
+{{ u_str }}
+{%- endif -%}
+{%- endmacro %}
+{% macro emit_json_kv_from_object(json_str) -%}
+{%- set ss = json_str | trim -%}
+{%- set sslen = ss | length -%}
+{%- set inner = ss[1:sslen-1] -%}
+{# split top-level members on commas, respecting strings/nesting #}
+{%- set ns = namespace(buf='', parts='', in_str=false, esc=false, depth_obj=0, depth_arr=0) -%}
+{%- for ch in inner -%}
+    {%- if ns.in_str -%}
+        {%- if ns.esc -%}
+            {%- set ns.esc = false -%}
+        {%- elif ch == '\\' -%}
+            {%- set ns.esc = true -%}
+        {%- elif ch == '"' -%}
+            {%- set ns.in_str = false -%}
+        {%- endif -%}
+        {%- set ns.buf = ns.buf + ch -%}
+    {%- else -%}
+        {%- if ch == '"' -%}
+            {%- set ns.in_str = true -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == '{' -%}
+            {%- set ns.depth_obj = ns.depth_obj + 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == '}' -%}
+            {%- set ns.depth_obj = ns.depth_obj - 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == '[' -%}
+            {%- set ns.depth_arr = ns.depth_arr + 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == ']' -%}
+            {%- set ns.depth_arr = ns.depth_arr - 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == ',' and ns.depth_obj == 0 and ns.depth_arr == 0 -%}
+            {%- set ns.parts = ns.parts + ns.buf + '\x1F' -%}
+            {%- set ns.buf = '' -%}
+        {%- else -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- endif -%}
+    {%- endif -%}
+{%- endfor -%}
+{%- set ns.parts = ns.parts + ns.buf -%}
+{# split each member on the first top-level colon into key/value #}
+{%- for pair in ns.parts.split('\x1F') if pair | trim -%}
+    {%- set p = pair | trim -%}
+    {%- set st = namespace(buf='', in_str=false, esc=false, depth_obj=0, depth_arr=0, seen_colon=false, k='', v='') -%}
+    {%- for ch in p -%}
+        {%- if st.in_str -%}
+            {%- if st.esc -%}
+                {%- set st.esc = false -%}
+            {%- elif ch == '\\' -%}
+                {%- set st.esc = true -%}
+            {%- elif ch == '"' -%}
+                {%- set st.in_str = false -%}
+            {%- endif -%}
+            {%- set st.buf = st.buf + ch -%}
+        {%- else -%}
+            {%- if ch == '"' -%}
+                {%- set st.in_str = true -%}
+                {%- set st.buf = st.buf + ch -%}
+            {%- elif ch == '{' -%}
+                {%- set st.depth_obj = st.depth_obj + 1 -%}
+                {%- set st.buf = st.buf + ch -%}
+            {%- elif ch == '}' -%}
+                {%- set st.depth_obj = st.depth_obj - 1 -%}
+                {%- set st.buf = st.buf + ch -%}
+            {%- elif ch == '[' -%}
+                {%- set st.depth_arr = st.depth_arr + 1 -%}
+                {%- set st.buf = st.buf + ch -%}
+            {%- elif ch == ']' -%}
+                {%- set st.depth_arr = st.depth_arr - 1 -%}
+                {%- set st.buf = st.buf + ch -%}
+            {%- elif ch == ':' and not st.seen_colon and st.depth_obj == 0 and st.depth_arr == 0 -%}
+                {%- set st.k = st.buf | trim -%}
+                {%- set st.buf = '' -%}
+                {%- set st.seen_colon = true -%}
+            {%- else -%}
+                {%- set st.buf = st.buf + ch -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- set st.v = st.buf | trim -%}
+    {# dequote key if it's a JSON string #}
+    {%- set key = st.k | trim -%}
+<arg_key>{{ unescape_json_string(key) }}</arg_key>
+{% set val_str = st.v | trim | safe %}
+<arg_value>{{ val_str if val_str.split("</arg_value>")|length > 1 else unescape_json_string(val_str) }}</arg_value>{{- '\n' -}}
+{%- endfor -%}
+{%- endmacro %}
+{% macro emit_json_items_from_array(_json_str) -%}
+{%- set json_str = _json_str | trim -%}
+{%- set json_str_len = json_str | length -%}
+{%- if "[" in json_str[1:json_str_len] -%}
+{%- set inner = json_str[1:json_str_len-1] -%}
+{%- set ns = namespace(buf='', parts='', in_str=false, esc=false, depth_obj=0, depth_arr=0) -%}
+{%- for ch in inner -%}
+    {%- if ns.in_str -%}
+        {%- if ns.esc -%}
+            {%- set ns.esc = false -%}
+        {%- elif ch == '\\' -%}
+            {%- set ns.esc = true -%}
+        {%- elif ch == '"' -%}
+            {%- set ns.in_str = false -%}
+        {%- endif -%}
+        {%- set ns.buf = ns.buf + ch -%}
+    {%- else -%}
+        {%- if ch == '"' -%}
+            {%- set ns.in_str = true -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == '{' -%}
+            {%- set ns.depth_obj = ns.depth_obj + 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == '}' -%}
+            {%- set ns.depth_obj = ns.depth_obj - 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == '[' -%}
+            {%- set ns.depth_arr = ns.depth_arr + 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == ']' -%}
+            {%- set ns.depth_arr = ns.depth_arr - 1 -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- elif ch == ',' and ns.depth_obj == 0 and ns.depth_arr == 0 -%}
+            {%- set ns.parts = ns.parts + ns.buf + '\x1F' -%}
+            {%- set ns.buf = '' -%}
+        {%- else -%}
+            {%- set ns.buf = ns.buf + ch -%}
+        {%- endif -%}
+    {%- endif -%}
+{%- endfor -%}
+{%- set ns.parts = ns.parts + ns.buf -%}
+
+{%- set idx = 0 -%}
+{%- for item in ns.parts.split('\x1F') if item | trim -%}
+<arg_key>{{ idx }}</arg_key>
+{% set val_str = item | trim | safe %}
+<arg_value>{{ val_str if val_str.split("</arg_value>")|length > 1 else unescape_json_string(val_str) }}</arg_value>
+{%- set idx = idx + 1 -%}
+{%- endfor -%}
+{%- else -%}
+{{ emit_json_kv_from_object(json_str[1:json_str_len-1]) }}
+{%- endif -%}
+{%- endmacro %}
+{% macro emit_json_from_string(s) -%}
+    {%- set t = s | trim -%}
+    {%- if t.startswith('{') and t.endswith('}') -%}
+        {{ emit_json_kv_from_object(t) }}
+    {%- elif t.startswith('[') and t.endswith(']') -%}
+        {{ emit_json_items_from_array(t) }}
+    {%- else -%}
+        {{ s }}
+    {%- endif -%}
+{%- endmacro %}
+{% macro emit_args(args) -%}
+{%- if args is string -%}
+{{ emit_json_from_string(args) }}
+{%- elif args is mapping -%}
+{%- for k, v in args | items -%}
+<arg_key>{{ k }}</arg_key>
+{%- if v is mapping or (v is iterable and v is not string) -%}
+{% set val_str = v | tojson %}
+<arg_value>{{ val_str }}</arg_value>
+{%- else -%}
+{% set val_str = v %}
+<arg_value>{{ val_str if val_str.split("</arg_value>")|length < 2 else val_str|string|tojson }}</arg_value>
+{%- endif -%}
+{%- if v is string -%}
+{% set val_str = v %}
+<arg_value>{{ val_str if val_str.split("</arg_value>")|length < 2 else val_str|string|tojson }}</arg_value>
+{%- else -%}
+{% set val_str = v | tojson %}
+<arg_value>{{ val_str }}</arg_value>
+{%- endif -%}
+
+{%- endfor -%}
+{%- elif args is iterable and args is not string -%}
+{# native list case (some runtimes pass lists, not JSON strings) #}
+{%- for v in args -%}
+<arg_key>{{ loop.index0 }}</arg_key>
+{% set val_str = v | tojson if v is mapping or (v is iterable and v is not string) else v %}
+<arg_value>{{ val_str if val_str.split("</arg_value>")|length < 2 else val_str|string|tojson }}</arg_value>
+{%- endfor -%}
+{%- else -%}
+{{ args | tojson }}
+{%- endif -%}
+{%- endmacro %}
+{% for m in messages %}
+{%- if m.role == 'user' -%}<|user|>
+{%- set user_content = visible_text(m.content) -%}
+{{ mask_user_text(user_content) }}
+{%- set _uc = user_content | trim -%}
+{%- set last_user_index_safe = ns.last_user_index | default(-1, true) -%}
+{%- if loop.index0 == last_user_index_safe
+      and (enable_thinking is defined and not enable_thinking)
+      and not _uc.endswith('/nothink') -%}
+{{ '\n/nothink' }}
+{%- endif -%}
+{%- elif m.role == 'assistant' -%}
+<|assistant|>
+{%- set reasoning_content = '' %}
+{%- set content = visible_text(m.content) %}
+{%- if m.reasoning_content is string and 0 != m.reasoning_content.strip()|length %}
+    {%- set reasoning_content = m.reasoning_content %}
+{%- else %}
+    {%- if '</think>' in content %}
+        {%- set think_parts = content.split('</think>') %}
+        {%- if content.endswith('</think>') %}
+            {%- set before_end_think = think_parts %}
+            {%- set after_end_think = '' %}
+        {%- else %}
+            {%- set think_parts_len = think_parts|length %}
+            {%- set before_end_think = think_parts[:think_parts_len - 1] %}
+            {%- set after_end_think = think_parts[think_parts_len - 1] %}
+        {%- endif %}
+        {% set nsreasoning = namespace(content='') %}
+        {%- for before_end_think_part in before_end_think %}
+            {%- set think_start_parts = before_end_think_part.split('<think>') %}
+            {%- set think_start_parts_len = think_start_parts|length %}
+            {%- set nsreasoning.content = nsreasoning.content + think_start_parts[think_start_parts_len - 1].lstrip('\n') %}
+        {%- endfor %}
+        {%- set reasoning_content = nsreasoning.content %}
+        {%- set content = after_end_think.lstrip('\n') %}
+    {%- endif %}
+{%- endif %}
+{%- set last_user_index_safe = ns.last_user_index | default(-1, true) -%}
+{%- if last_user_index_safe >= 0 and loop.index0 > last_user_index_safe and reasoning_content -%}
+{{ '\n<think>' + reasoning_content.strip() +  '</think>'}}
+{%- else -%}
+{{ '\n<think></think>' }}
+{%- endif -%}
+{%- if content.strip() -%}
+{{ '\n' + content.strip() }}
+{%- endif -%}
+{% if m.tool_calls %}
+{% for tc in m.tool_calls %}
+{%- set f = tc.function if tc.function else tc -%}
+{{ '\n<tool_call>' + f.name }}
+{{ emit_args(f.arguments) }}
+{{- '</tool_call>' }}
+{% endfor %}
+{% endif %}
+{%- elif m.role == 'tool' -%}
+{%- if m.content is string -%}
+{%- if loop.first or (messages[loop.index0 - 1].role != "tool") %}
+    {{- '<|observation|>' }}
+{%- endif %}
+{{- '\n<tool_response>\n' }}
+{%- if m.content == '' -%}
+{{- 'SYSTEM ERROR: This tool is not working due to internal error, try another tool or give a direct response.' }}
+{%- else -%}
+{{-  emit_args(m.content) }}
+{%- endif %}
+{{- '</tool_response>' }}
+{%- else -%}
+<|observation|>{% for tr in m.content %}
+{{- '<tool_response>' }}
+{{ tr.output if tr.output is defined else tr }}
+{{- '</tool_response>' }}{% endfor -%}
+{% endif -%}
+{%- elif m.role == 'system' -%}
+<|system|>
+{{ visible_text(m.content) }}
+{%- endif -%}
+{%- endfor -%}
+{%- if add_generation_prompt -%}
+    <|assistant|>{{- '\n<think></think>' if (enable_thinking is defined and not enable_thinking) else '' -}}
+{%- endif -%}

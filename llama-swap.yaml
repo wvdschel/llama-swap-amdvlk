@@ -1,5 +1,5 @@
-# run with docker:
-# docker run --rm --name llama-swap -p 9292:8080 --device /dev/dri --volume ./llama-swap.yaml:/app/config.yaml --volume ~/.cache/llama.cpp:/cache/llama.cpp quay.io/wvdschel/llama-swap-amdvlk:latest
+# generate quadlet with:
+# podlet podman run --rm --name llama-swap -p 9292:8080 --device /dev/dri --volume ~/Unison/Code/llama-swap.yaml:/app/config.yaml:z --volume ~/.cache/llama.cpp:/home/ubuntu/.cache/llama.cpp:z --user 1000:1000 ghcr.io/mostlygeek/llama-swap:vulkan
 
 # healthCheckTimeout: number of seconds to wait for a model to be ready to serve requests
 # - optional, default: 120
@@ -30,10 +30,10 @@ startPort: 10001
 # - useful for reducing common configuration settings
 macros:
   "latest-llama": >
-    /app/llama-server
-    -hft set_your_huggingface_token_here
+    nice /app/llama-server
+    -hft YOUR_HF_TOKEN
     --port ${PORT}
-    --flash-attn on --cont-batching -np 1 --ubatch-size 4096 -ngl 9999
+    --flash-attn on --cont-batching -np 1 --ubatch-size 2048 --batch-size 2048 -ngl 9999
 
 # models: a dictionary of model configurations
 # - required
@@ -46,9 +46,23 @@ models:
   "devstral-small":
     cmd: |
       ${latest-llama}
-      -hf mistralai/Devstral-Small-2507_gguf
+      -hf mistralai/Devstral-Small-2507_gguf:Q8_0
       --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
-    name: "Devstral Small Q8"
+    name: "Devstral Small 2507 Q8"
+
+  "magistral-small":
+    cmd: |
+      ${latest-llama}
+      -hf unsloth/Magistral-Small-2509-GGUF
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
+    name: "Magistral Small 2506 Q8"
+    
+  "mistral-small":
+    cmd: |
+      ${latest-llama}
+      -hf lmstudio-community/Mistral-Small-3.2-24B-Instruct-2506-GGUF:Q8_0
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
+    name: "Mistral Small 2506 Q8"
 
   "ernie":
     cmd: |
@@ -60,16 +74,37 @@ models:
   "gemma3":
     cmd: |
       ${latest-llama}
-      -hf google/gemma-3-27b-it-qat-q4_0-gguf
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+      -hf unsloth/gemma-3-27b-it-qat-GGUF:Q4_0
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 100000 -ub 512
     name: "Gemma3 27B QAT"
 
   "gpt-oss-20b":
     cmd: |
       ${latest-llama}
-      -hf ggml-org/gpt-oss-20b-GGUF
+      -hf ggml-org/gpt-oss-20b-GGUF --jinja
       --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
     name: "GPT-OSS 20b"
+  
+  "gpt-oss-20b-code":
+    cmd: |
+      ${latest-llama}
+      -hf ggml-org/gpt-oss-20b-GGUF --jinja --grammar-file /app/gpt-oss-cline.gbnf
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+    name: "GPT-OSS 20b with Cline grammar"
+  
+  "gpt-oss-120b":
+    cmd: |
+      ${latest-llama}
+      -hf ggml-org/gpt-oss-120b-GGUF --cpu-moe --jinja
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+    name: "GPT-OSS 120b"
+  
+  "gpt-oss-120b-code":
+    cmd: |
+      ${latest-llama}
+      -hf ggml-org/gpt-oss-120b-GGUF --cpu-moe --jinja --grammar-file /app/gpt-oss-cline.gbnf
+      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+    name: "GPT-OSS 120b with Cline grammar"
   
   "seed-oss-36b":
     cmd: |
@@ -83,6 +118,16 @@ models:
       -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q6_K_XL
       --top_p 0.8 --temp 0.7 --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
     name: "Qwen3 30B A3B Instruct Q6"
+
+  "glm-4.5-air": # Q3_K_S or IQ4_XS
+    cmd: |
+       ${latest-llama} -hf unsloth/GLM-4.5-Air-GGUF:Q3_K_S --cpu-moe -c 80000 -ctk q8_0 -ctv q8_0 --jinja
+    name: "GLM-4.5-Air Q3"
+      
+  "glm-4.5-air-code": # Q3_K_S or IQ4_XS
+    cmd: |
+       ${latest-llama} -hf unsloth/GLM-4.5-Air-GGUF:Q3_K_S --cpu-moe -c 80000 -ctk q8_0 -ctv q8_0 --chat-template-file /app/glm-4.5-toolcalling.jinja
+    name: "GLM-4.5-Air Q3 with tool calling template"
       
   "qwen3-embed":
     cmd: |
@@ -150,8 +195,8 @@ models:
     # - macros can be used within cmd
     cmd: |
       ${latest-llama}
-      -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q5_K_M
-      --top_p 0.8 --temp 0.7 --cache-type-k q5_0 --cache-type-v q5_0 --ctx-size 80000
+      -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q5_K_M --jinja
+      --top_p 0.8 --temp 0.7 --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 100000
 
     # name: a display name for the model
     # - optional, default: empty string
@@ -258,10 +303,14 @@ groups:
       - "qwen3-coder"
       - "qwen3"
       - "devstral-small"
+      - "mistral-small"
+      - "magistral-small"
       - "gpt-oss-20b"
+      - "gpt-oss-120b"
       - "ernie"
       - "seed-oss-36b"
       - "gemma3"
+      - "glm-4.5-air"
 
     
   "coding-autocomplete":
