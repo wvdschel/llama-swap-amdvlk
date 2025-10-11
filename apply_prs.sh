@@ -3,7 +3,7 @@ set -exo pipefail
 
 if [[ ${#} -lt 1 ]]; then
   echo no list of PRS provided 
-  exit 1
+  exit 0
 fi
 
 for i in ${@}; do
