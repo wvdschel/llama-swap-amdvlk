@@ -30,15 +30,15 @@ build-vulkan:
 build-rocm: $(patsubst %,build-rocm-%,$(ROCM_ARCHES))
 
 build-rocm-%:
-	$(DOCKER_CMD) build --target=llama-swap-rocm --tag quay.io/wvdschel/llama-swap-rocm-$(ROCM_BUILD)-$(shell echo $* | tr A-Z a-z):$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg ROCM_BUILD=$(ROCM_BUILD) --build-arg ROCM_ARCH="$*" .
-	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-rocm-$(ROCM_BUILD)-$(shell echo $* | tr A-Z a-z):$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap-rocm-$(shell echo $* | tr A-Z a-z):latest
+	$(DOCKER_CMD) build --target=llama-swap-rocm --tag quay.io/wvdschel/llama-swap-rocm-$(shell echo $* | tr A-Z a-z):$(LLAMA_SWAP_VERSION)-$(ROCM_BUILD) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg ROCM_BUILD=$(ROCM_BUILD) --build-arg ROCM_ARCH="$*" .
+	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-rocm-$(shell echo $* | tr A-Z a-z):$(LLAMA_SWAP_VERSION)-$(ROCM_BUILD) quay.io/wvdschel/llama-swap-rocm-$(shell echo $* | tr A-Z a-z):latest
 
 .PHONY: publish
 publish: build
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-amdvlk:$(LLAMA_SWAP_VERSION)
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-vulkan:$(LLAMA_SWAP_VERSION) 
 	for arch in $(shell echo $(ROCM_ARCHES) | tr A-Z a-z); do \
-		$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-rocm-$(ROCM_BUILD)-$$arch:$(LLAMA_SWAP_VERSION); \
+		$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-rocm-$$arch:$(LLAMA_SWAP_VERSION)-$(ROCM_BUILD); \
 	done
 
 .PHONY: publish-latest
