@@ -47,8 +47,8 @@ COPY --from=builder-rocm /build/llama.cpp/build-rocm/bin/*.so /app/
 COPY --from=builder-rocm /opt/rocm*/lib/*.so* /app/
 COPY --from=builder-rocm /usr/lib/x86_64-linux-gnu/libgomp* /app/
 COPY --from=builder-rocm /usr/lib/x86_64-linux-gnu/libnuma* /app/
-ENV LD_LIBRARY_PATH=/app
 ADD ./remove-unnecessary-libs.sh /app/remove-unnecessary-libs.sh
+ENV LD_LIBRARY_PATH=/app
 RUN /app/remove-unnecessary-libs.sh
 
 FROM scratch AS llama-swap-vulkan-final
@@ -61,4 +61,5 @@ ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
 
 FROM scratch AS llama-swap-rocm-final
 COPY --from=llama-swap-rocm / /
+ENV LD_LIBRARY_PATH=/app
 ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]

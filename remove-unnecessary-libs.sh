@@ -1,10 +1,12 @@
 #!/bin/bash
 set -eo pipefail
 
-NEEDED_LIBS=$(ldd /app/llama-server | grep '=> /app' | sed -rE 's/[^>]+>\s+([^ ]+).*/\1/')
+NEEDED_LIBS=( $(ldd /app/llama-server | grep '=> /app' | sed -rE 's/[^>]+>\s+([^ ]+).*/\1/') )
 for lib in $(ls /app/*.so*); do
-    if [[ ! " ${NEEDED_LIBS[@]} " =~ " ${lib} " ]]; then
+    if ! [[ " ${NEEDED_LIBS[@]} " =~ " ${lib} " ]]; then
         echo "Removing unused library: $lib"
         rm -f "$lib"
+    else
+        echo "Retaining library: $lib"
     fi
 done
