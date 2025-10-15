@@ -29,8 +29,6 @@ COPY --from=builder /build/llama-swap/build/llama-swap-linux-amd64 /app/llama-sw
 COPY --from=builder-vulkan /build/llama.cpp/build/bin/llama-server /app/llama-server
 ADD ./gpt-oss-cline.gbnf /app/gpt-oss-cline.gbnf
 ADD ./glm-4.5-toolcalling.jinja /app/glm-4.5-toolcalling.jinja
-HEALTHCHECK CMD curl -f http://localhost:8080/ || exit 1
-ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
 
 FROM llama-swap-vulkan AS llama-swap-amdvlk
 RUN wget https://github.com/GPUOpen-Drivers/AMDVLK/releases/download/v-2025.Q2.1/amdvlk_2025.Q2.1_amd64.deb && dpkg -i amdvlk_2025.Q2.1_amd64.deb
@@ -44,11 +42,23 @@ RUN cd /build/llama.cpp && cmake -B build-rocm -DCMAKE_INSTALL_PREFIX=/opt/llama
 RUN cd /build/llama.cpp && cmake --build build-rocm/ -j$(nproc)
 
 FROM llama-swap-vulkan AS llama-swap-rocm
-# COPY --from=builder-rocm /amdgpu-install.deb /amdgpu-install.deb
-# RUN apt-get install -yy /amdgpu-install.deb && rm /amdgpu-install.deb && apt-get update
 COPY --from=builder-rocm /build/llama.cpp/build-rocm/bin/llama-server /app/llama-server
 COPY --from=builder-rocm /build/llama.cpp/build-rocm/bin/*.so /app/
 COPY --from=builder-rocm /opt/rocm*/lib/*.so* /app/
 COPY --from=builder-rocm /usr/lib/x86_64-linux-gnu/libgomp* /app/
 COPY --from=builder-rocm /usr/lib/x86_64-linux-gnu/libnuma* /app/
 ENV LD_LIBRARY_PATH=/app
+ADD ./remove-unnecessary-libs.sh /app/remove-unnecessary-libs.sh
+RUN /app/remove-unnecessary-libs.sh
+
+FROM scratch AS llama-swap-vulkan-final
+COPY --from=llama-swap-vulkan / /
+ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
+
+FROM scratch AS llama-swap-amdvlk-final
+COPY --from=llama-swap-amdvlk / /
+ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
+
+FROM scratch AS llama-swap-rocm-final
+COPY --from=llama-swap-rocm / /
+ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]

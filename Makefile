@@ -17,17 +17,17 @@ build: build-amdvlk build-vulkan build-rocm
 
 .PHONY: build-amdvlk
 build-amdvlk:
-	$(DOCKER_CMD) build --target=llama-swap-amdvlk --tag quay.io/wvdschel/llama-swap-amdvlk:$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg LLAMA_CPP_VERSION=$(LLAMA_CPP_VERSION) --build-arg LLAMA_CPP_INCLUDE_PRS="$(LLAMA_CPP_INCLUDE_PRS)" .
+	$(DOCKER_CMD) build --target=llama-swap-amdvlk-final --tag quay.io/wvdschel/llama-swap-amdvlk:$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg LLAMA_CPP_VERSION=$(LLAMA_CPP_VERSION) --build-arg LLAMA_CPP_INCLUDE_PRS="$(LLAMA_CPP_INCLUDE_PRS)" .
 	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-amdvlk:$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap-amdvlk:latest
 
 .PHONY: build-vulkan
 build-vulkan:
-	$(DOCKER_CMD) build --target=llama-swap-vulkan --tag quay.io/wvdschel/llama-swap-vulkan:$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg LLAMA_CPP_VERSION=$(LLAMA_CPP_VERSION) --build-arg LLAMA_CPP_INCLUDE_PRS="$(LLAMA_CPP_INCLUDE_PRS)" .
+	$(DOCKER_CMD) build --target=llama-swap-vulkan-final --tag quay.io/wvdschel/llama-swap-vulkan:$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg LLAMA_CPP_VERSION=$(LLAMA_CPP_VERSION) --build-arg LLAMA_CPP_INCLUDE_PRS="$(LLAMA_CPP_INCLUDE_PRS)" .
 	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-vulkan:$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap-vulkan:latest
 
 .PHONY: build-rocm
 build-rocm:
-	$(DOCKER_CMD) build --target=llama-swap-rocm --tag quay.io/wvdschel/llama-swap-rocm:$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg ROCM_ARCH="$*"  --build-arg LLAMA_CPP_VERSION=$(LLAMA_CPP_VERSION) --build-arg LLAMA_CPP_INCLUDE_PRS="$(LLAMA_CPP_INCLUDE_PRS)" .
+	$(DOCKER_CMD) build --target=llama-swap-rocm-final --tag quay.io/wvdschel/llama-swap-rocm:$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg ROCM_ARCH="$*"  --build-arg LLAMA_CPP_VERSION=$(LLAMA_CPP_VERSION) --build-arg LLAMA_CPP_INCLUDE_PRS="$(LLAMA_CPP_INCLUDE_PRS)" .
 	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-rocm:$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap-rocm:latest
 
 .PHONY: publish
