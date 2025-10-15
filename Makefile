@@ -11,8 +11,7 @@ LLAMA_CPP_INCLUDE_PRS=
 
 DOCKER_CMD ?= podman
 
-ROCM_ARCHES ?= gfx1151 gfx120X gfx110X
-ROCM_BUILD ?= b1078
+ROCM_ARCHES ?= gfx1151,gfx1200,gfx1201,gfx1100,gfx1102,gfx1030,gfx1031,gfx1032
 
 build: build-amdvlk build-vulkan build-rocm
 
@@ -27,24 +26,18 @@ build-vulkan:
 	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-vulkan:$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap-vulkan:latest
 
 .PHONY: build-rocm
-build-rocm: $(patsubst %,build-rocm-%,$(ROCM_ARCHES))
-
-build-rocm-%:
-	$(DOCKER_CMD) build --target=llama-swap-rocm --tag quay.io/wvdschel/llama-swap-rocm-$(shell echo $* | tr A-Z a-z):$(LLAMA_SWAP_VERSION)-$(ROCM_BUILD) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg ROCM_BUILD=$(ROCM_BUILD) --build-arg ROCM_ARCH="$*" .
-	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-rocm-$(shell echo $* | tr A-Z a-z):$(LLAMA_SWAP_VERSION)-$(ROCM_BUILD) quay.io/wvdschel/llama-swap-rocm-$(shell echo $* | tr A-Z a-z):latest
+build-rocm:
+	$(DOCKER_CMD) build --target=llama-swap-rocm --tag quay.io/wvdschel/llama-swap-rocm:$(LLAMA_SWAP_VERSION) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg ROCM_ARCH="$*"  --build-arg LLAMA_CPP_VERSION=$(LLAMA_CPP_VERSION) --build-arg LLAMA_CPP_INCLUDE_PRS="$(LLAMA_CPP_INCLUDE_PRS)" .
+	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap-rocm:$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap-rocm:latest
 
 .PHONY: publish
 publish: build
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-amdvlk:$(LLAMA_SWAP_VERSION)
-	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-vulkan:$(LLAMA_SWAP_VERSION) 
-	for arch in $(shell echo $(ROCM_ARCHES) | tr A-Z a-z); do \
-		$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-rocm-$$arch:$(LLAMA_SWAP_VERSION)-$(ROCM_BUILD); \
-	done
+	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-vulkan:$(LLAMA_SWAP_VERSION)
+	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-rocm:$(LLAMA_SWAP_VERSION)
 
 .PHONY: publish-latest
 publish-latest: publish
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-amdvlk:latest
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-vulkan:latest
-	for arch in $(shell echo $(ROCM_ARCHES) | tr A-Z a-z); do \
-		$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-rocm-$$arch:latest; \
-	done
+	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap-rocm:latest
