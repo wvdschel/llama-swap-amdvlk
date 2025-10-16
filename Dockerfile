@@ -21,7 +21,6 @@ RUN cd /build/llama.cpp && cmake --build build/ -j$(nproc)
 
 FROM base AS llama-swap-vulkan
 RUN apt-get clean
-ENV XDG_CACHE_HOME=/cache
 RUN mkdir -p /cache/mesa_shader_cache /cache/mesa_shader_cache_db /cache/radv_builtin_shaders
 RUN chmod -R a+rw /cache
 RUN mkdir /app
@@ -53,13 +52,16 @@ RUN /app/remove-unnecessary-libs.sh
 
 FROM scratch AS llama-swap-vulkan-final
 COPY --from=llama-swap-vulkan / /
+ENV XDG_CACHE_HOME=/cache
 ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
 
 FROM scratch AS llama-swap-amdvlk-final
 COPY --from=llama-swap-amdvlk / /
+ENV XDG_CACHE_HOME=/cache
 ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
 
 FROM scratch AS llama-swap-rocm-final
 COPY --from=llama-swap-rocm / /
 ENV LD_LIBRARY_PATH=/app
+ENV XDG_CACHE_HOME=/cache
 ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
