@@ -36,8 +36,8 @@ FROM builder-vulkan AS builder-rocm
 ARG ROCM_ARCH
 RUN wget https://repo.radeon.com/amdgpu-install/7.0.2/ubuntu/noble/amdgpu-install_7.0.2.70002-1_all.deb -O /amdgpu-install.deb
 RUN apt-get install -yy /amdgpu-install.deb && apt-get update
-RUN apt-get install -yy python3-setuptools python3-wheel rocm rocm-hip-sdk rocm-dev
-RUN cd /build/llama.cpp && cmake -B build-rocm -DCMAKE_INSTALL_PREFIX=/opt/llama.cpp -DCMAKE_BUILD_TYPE=Release -DGGML_HIP=ON -DGPU_TARGETS=${ROCM_ARCH} -DGGML_RPC=ON
+RUN apt-get install -yy python3-setuptools python3-wheel rocm rocm-hip-sdk rocm-dev rocwmma-dev
+RUN cd /build/llama.cpp && cmake -B build-rocm -DCMAKE_INSTALL_PREFIX=/opt/llama.cpp -DCMAKE_BUILD_TYPE=Release -DGGML_HIP=ON -DGPU_TARGETS=${ROCM_ARCH} -DGGML_RPC=ON -DGGML_HIP_ROCWMMA_FATTN=ON
 RUN cd /build/llama.cpp && cmake --build build-rocm/ -j$(nproc)
 
 FROM llama-swap-vulkan AS llama-swap-rocm
@@ -65,3 +65,6 @@ COPY --from=llama-swap-rocm / /
 ENV LD_LIBRARY_PATH=/app
 ENV XDG_CACHE_HOME=/cache
 ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
+
+FROM llama-swap-rocm-final AS llama-swap-rocm-igpu-final
+ENV GGML_CUDA_ENABLE_UNIFIED_MEMORY=1
