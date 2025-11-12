@@ -1,5 +1,5 @@
-# generate quadlet with:
-# podlet podman run --rm --name llama-swap -p 9292:8080 --device /dev/dri --volume ~/Unison/Code/llama-swap.yaml:/app/config.yaml:z --volume ~/.cache/llama.cpp:/home/ubuntu/.cache/llama.cpp:z --user 1000:1000 ghcr.io/mostlygeek/llama-swap:vulkan
+# preload all gguf files using:
+# cat llama-swap.yaml | grep -- '-hf ' | sed -re 's/.*-hf ([^ ]+).*/\1/'  | sort -u | xargs -i{} llama-server -hf {} -ngl 0 --help
 
 # healthCheckTimeout: number of seconds to wait for a model to be ready to serve requests
 # - optional, default: 120
@@ -32,8 +32,8 @@ macros:
   "latest-llama": >
     nice /app/llama-server
     -hft YOUR_HF_TOKEN
-    --port ${PORT}
-    --flash-attn on --cont-batching -np 1 --ubatch-size 2048 --batch-size 2048 -ngl 9999
+    --port ${PORT} --no-warmup --no-mmap
+    --flash-attn on --cont-batching -np 1 --ubatch-size 2048 --batch-size 512 -ngl 9999
 
 # models: a dictionary of model configurations
 # - required
@@ -46,31 +46,15 @@ models:
   "devstral-small":
     cmd: |
       ${latest-llama}
-      -hf mistralai/Devstral-Small-2507_gguf:Q8_0
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
+      -hf mistralai/Devstral-Small-2507_gguf:Q8_0 --ctx-size 0
     name: "Devstral Small 2507 Q8"
 
   "magistral-small":
     cmd: |
       ${latest-llama}
-      -hf unsloth/Magistral-Small-2509-GGUF
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
+      -hf unsloth/Magistral-Small-2509-GGUF --ctx-size 0
     name: "Magistral Small 2506 Q8"
-    
-  "mistral-small":
-    cmd: |
-      ${latest-llama}
-      -hf lmstudio-community/Mistral-Small-3.2-24B-Instruct-2506-GGUF:Q8_0
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
-    name: "Mistral Small 2506 Q8"
-
-  "ernie":
-    cmd: |
-      ${latest-llama}
-      -hf unsloth/ERNIE-4.5-21B-A3B-Thinking-GGUF:Q6_K
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
-    name: "ERNIE 4.5 21B-A3B Thinking Q6"
-  
+      
   "gemma3":
     cmd: |
       ${latest-llama}
@@ -81,60 +65,55 @@ models:
   "gpt-oss-20b":
     cmd: |
       ${latest-llama}
-      -hf ggml-org/gpt-oss-20b-GGUF --jinja
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+      -hf ggml-org/gpt-oss-20b-GGUF --jinja --ctx-size 0
     name: "GPT-OSS 20b"
   
   "gpt-oss-20b-code":
     cmd: |
       ${latest-llama}
-      -hf ggml-org/gpt-oss-20b-GGUF --jinja --grammar-file /app/gpt-oss-cline.gbnf
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+      -hf ggml-org/gpt-oss-20b-GGUF --jinja --grammar-file /app/gpt-oss-cline.gbnf --ctx-size 0
     name: "GPT-OSS 20b with Cline grammar"
   
   "gpt-oss-120b":
     cmd: |
       ${latest-llama}
-      -hf ggml-org/gpt-oss-120b-GGUF --cpu-moe --jinja
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+      -hf ggml-org/gpt-oss-120b-GGUF--jinja --ctx-size 0
     name: "GPT-OSS 120b"
   
   "gpt-oss-120b-code":
     cmd: |
       ${latest-llama}
-      -hf ggml-org/gpt-oss-120b-GGUF --cpu-moe --jinja --grammar-file /app/gpt-oss-cline.gbnf
-      --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 0
+      -hf ggml-org/gpt-oss-120b-GGUF --jinja --grammar-file /app/gpt-oss-cline.gbnf --ctx-size 0
     name: "GPT-OSS 120b with Cline grammar"
   
   "seed-oss-36b":
     cmd: |
       ${latest-llama}
-      -hf mradermacher/Seed-OSS-36B-Instruct-abliterated-GGUF:Q5_K_M -fa on -c 16000 -ctk q5_0 -ctv q5_0
-    name: "Seed-OSS 36b Q5"
+      -hf mradermacher/Seed-OSS-36B-Instruct-abliterated-GGUF:Q4_K_M -c 0
+    name: "Seed-OSS 36b Q4"
   
   "qwen3":
     cmd: |
       ${latest-llama}
-      -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q6_K_XL
-      --top_p 0.8 --temp 0.7 --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 80000
-    name: "Qwen3 30B A3B Instruct Q6"
+      -hf unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF:Q8_0 --top_p 0.8 --temp 0.7 --ctx-size 0
+    name: "Qwen3 30B A3B Instruct Q8"
 
-  "glm-4.5-air": # Q3_K_S or IQ4_XS
+  "glm-4.5-air":
     cmd: |
-       ${latest-llama} -hf unsloth/GLM-4.5-Air-GGUF:Q3_K_S --cpu-moe -c 80000 -ctk q8_0 -ctv q8_0 --jinja
-    name: "GLM-4.5-Air Q3"
-      
-  "glm-4.5-air-code": # Q3_K_S or IQ4_XS
+       ${latest-llama} -hf lovedheart/GLM-4.5-Air-GGUF-IQ1_M:MXFP4_MOE_S --jinja --ctx-size 0
+    name: "GLM-4.5-Air MXFP4"
+
+  "granite-4.0-h-small":
     cmd: |
-       ${latest-llama} -hf unsloth/GLM-4.5-Air-GGUF:Q3_K_S --cpu-moe -c 80000 -ctk q8_0 -ctv q8_0 --chat-template-file /app/glm-4.5-toolcalling.jinja
-    name: "GLM-4.5-Air Q3 with tool calling template"
+       ${latest-llama} -hf unsloth/granite-4.0-h-small-GGUF:Q8_0 -c 0 --jinja
+    name: "IBM Granite 4.0 small Q8"
       
   "qwen3-embed":
     cmd: |
       ${latest-llama}
       -hf Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0
       --pooling last -ub 8192 --verbose-prompt --embeddings
-      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 0
+      --ctx-size 0
     name: "Qwen3 Embedding"
   
   "nomic-embed":
@@ -148,17 +127,15 @@ models:
   "qwen2.5-coder-7b":
     cmd: |
       ${latest-llama}
-      -hf Qwen/Qwen2.5-Coder-7B-Instruct-GGUF:Q6_K
-      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 6192
-    name: "Qwen2.5-Coder-7B Q6"
+      -hf Qwen/Qwen2.5-Coder-7B-Instruct-GGUF:Q8_0 --ctx-size 6192
+    name: "Qwen2.5-Coder-7B Q8"
     filters:
       strip_params: "suffix"
 
   "qwen2.5-coder-3b":
     cmd: |
       ${latest-llama}
-      -hf Qwen/Qwen2.5-Coder-3B-Instruct-GGUF:Q8_0
-      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 6192
+      -hf Qwen/Qwen2.5-Coder-3B-Instruct-GGUF:Q8_0 --ctx-size 6192
     name: "Qwen2.5-Coder-3B Q8"
     filters:
       strip_params: "suffix"
@@ -166,8 +143,7 @@ models:
   "qwen2.5-coder-1.5b":
     cmd: |
       ${latest-llama}
-      -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF:Q8_0
-      --cache-type-v q8_0 --cache-type-k q8_0 --ctx-size 6192
+      -hf Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF:Q8_0 --ctx-size 6192
     name: "Qwen2.5-Coder-1.5B Q8"
     filters:
       strip_params: "suffix"
@@ -176,14 +152,12 @@ models:
     cmd: |
       ${latest-llama}
       -hf DevQuasar/Qwen.Qwen3-Reranker-0.6B-GGUF:Q8_0
-      --cache-type-v q8_0 --cache-type-k q8_0
     name: "Qwen3 Reranker Q8"
 
   "zerank-1-small":
     cmd: |
       ${latest-llama}
       -hf mradermacher/zerank-1-small-GGUF:Q8_0
-      --cache-type-v q8_0 --cache-type-k q8_0
     name: "Zerank 1 Small Q8"
 
   # keys are the model names used in API requests
@@ -195,14 +169,14 @@ models:
     # - macros can be used within cmd
     cmd: |
       ${latest-llama}
-      -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q5_K_M --jinja
-      --top_p 0.8 --temp 0.7 --cache-type-k q8_0 --cache-type-v q8_0 --ctx-size 100000
+      -hf unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF:Q8_0 --jinja
+      --top_p 0.8 --temp 0.7 --ctx-size 0
 
     # name: a display name for the model
     # - optional, default: empty string
     # - if set, it will be used in the v1/models API response
     # - if not set, it will be omitted in the JSON model record
-    name: "Qwen3-Coder-30B-A3B-Instruct-GGUF:Q5_K_M"
+    name: "Qwen3 Coder 30B A3B Instruct Q8"
 
     # description: a description for the model
     # - optional, default: empty string
@@ -300,20 +274,21 @@ groups:
     # members references the models defined above
     # required
     members:
-      - "qwen3-coder"
       - "qwen3"
       - "devstral-small"
-      - "mistral-small"
       - "magistral-small"
       - "gpt-oss-20b"
       - "gpt-oss-120b"
-      - "ernie"
       - "seed-oss-36b"
       - "gemma3"
       - "glm-4.5-air"
+      - "qwen3-coder"
+      - "granite-4.0-h-small"
+      - "gpt-oss-20b-code"
+      - "gpt-oss-120b-code"
 
     
-  "coding-autocomplete":
+  "autocomplete":
     swap: true
     exclusive: false
     members:
@@ -321,14 +296,14 @@ groups:
       - "qwen2.5-coder-7b"
       - "qwen2.5-coder-1.5b"
       
-  "coding-embed":
+  "embed":
     swap: true
     exclusive: false
     members:
       - "qwen3-embed"
       - "nomic-embed"
       
-  "coding-rerank":
+  "rerank":
     swap: true
     exclusive: false
     members:
@@ -379,5 +354,5 @@ hooks:
         # - model names must match keys in the models sections
         # - when preloading multiple models at once, define a group
         #   otherwise models will be loaded and swapped out
-    preload:
-      - "coding"
+    #preload:
+    #  - "glm-4.5-air"
