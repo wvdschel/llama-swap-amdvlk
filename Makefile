@@ -1,13 +1,8 @@
-LLAMA_SWAP_VERSION=v172
+LLAMA_SWAP_VERSION=v176
 LLAMA_CPP_VERSION=master
 
-LLAMA_CPP_INCLUDE_PRS=
-# Seed thought web UI - no longer applies cleanly
-#LLAMA_CPP_INCLUDE_PRS+=15820
-# Qwen tool calling
-#LLAMA_CPP_INCLUDE_PRS+=15161,15162
-# GLM 4.5 Air tool calling
-#LLAMA_CPP_INCLUDE_PRS+=15904
+# Include Qwen-Next token generation optimization
+LLAMA_CPP_INCLUDE_PRS=17996
 
 DOCKER_CMD ?= podman
 

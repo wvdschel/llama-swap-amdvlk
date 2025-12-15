@@ -8,6 +8,6 @@ fi
 
 for i in ${@}; do
   export PATCH=/build/${i}.patch
-  curl -L https://github.com/ggml-org/llama.cpp/pull/${i}.patch > ${PATCH}
+  wget https://github.com/ggml-org/llama.cpp/pull/${i}.patch -O- > ${PATCH}
   (cd /build/llama.cpp; git apply ${PATCH})
 done
