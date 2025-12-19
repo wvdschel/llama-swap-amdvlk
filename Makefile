@@ -1,4 +1,4 @@
-LLAMA_SWAP_VERSION=v176
+LLAMA_SWAP_VERSION=v177
 LLAMA_CPP_VERSION=master
 
 # Include Qwen-Next token generation optimization
