@@ -7,7 +7,7 @@ Image=quay.io/wvdschel/llama-swap:latest
 PublishPort=9292:8080
 AddDevice=/dev/dri
 AddDevice=/dev/kfd
-Volume=/home/wim/Unison/Code/llama-swap.yaml:/app/config.yaml:z
+Volume=/home/wim/.config/llama-swap.yaml:/app/config.yaml:z
 Volume=/home/wim/.cache/llama.cpp:/cache/llama.cpp:z
 User=1000:1000
 
