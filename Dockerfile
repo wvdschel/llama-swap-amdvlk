@@ -9,7 +9,7 @@ RUN apt-get install -yy vulkan-tools libcurlpp0t64 wget
 FROM base AS builder
 WORKDIR /build
 RUN cd /build
-RUN apt-get install -yy libvulkan-dev glslc glslang-tools glslang-dev python3-dev build-essential cmake git-lfs libcurlpp-dev git wget golang npm llvm clang
+RUN apt-get install -yy libvulkan-dev glslc glslang-tools glslang-dev python3-dev build-essential cmake git-lfs libcurlpp-dev git wget golang npm llvm clang ccache libblas-dev libflame-dev
 ARG LLAMA_SWAP_VERSION
 RUN git clone -b $LLAMA_SWAP_VERSION --single-branch https://github.com/mostlygeek/llama-swap
 RUN make -C /build/llama-swap clean linux
@@ -20,8 +20,11 @@ ARG LLAMA_CPP_INCLUDE_PRS
 RUN git clone https://github.com/ggml-org/llama.cpp
 ADD apply_prs.sh /build/apply_prs.sh
 RUN /build/apply_prs.sh ${LLAMA_CPP_INCLUDE_PRS}
-RUN cd /build/llama.cpp && cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/llama.cpp -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DGGML_STATIC=ON -DGGML_VULKAN=ON -DGGML_RPC=ON
-RUN cd /build/llama.cpp && nice cmake --build build/ -j$(nproc)
+RUN cmake --version && false
+RUN cd /build/llama.cpp && cmake -B build-vulkan -DCMAKE_INSTALL_PREFIX=/opt/llama.cpp -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DGGML_STATIC=ON -DGGML_VULKAN=ON -DGGML_RPC=ON
+RUN cd /build/llama.cpp && nice cmake --build build-vulkan/ -j$(nproc)
+RUN cd /build/llama.cpp && cmake -B build-cpu -DCMAKE_INSTALL_PREFIX=/opt/llama.cpp -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DGGML_STATIC=ON -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=FLAME -DGGML_RPC=ON
+RUN cd /build/llama.cpp && nice cmake --build build-cpu/ -j$(nproc)
 
 FROM base AS llama-swap-vulkan
 RUN apt-get clean
@@ -32,7 +35,9 @@ RUN mkdir -p /cache/mesa_shader_cache /cache/mesa_shader_cache_db /cache/radv_bu
 RUN chmod -R a+rw /cache
 RUN mkdir /app
 COPY --from=builder        /build/llama-swap/build/llama-swap-linux-amd64 /app/llama-swap
-COPY --from=builder-vulkan /build/llama.cpp/build/bin/llama-server /app/llama-server
+COPY --from=builder-vulkan /build/llama.cpp/build-vulkan/bin/llama-server /app/llama-server-vulkan
+COPY --from=builder-vulkan /build/llama.cpp/build-cpu/bin/llama-server /app/llama-server-cpu
+RUN ln -s /app/llama-server-vulkan /app/llama-server
 
 FROM llama-swap-vulkan AS llama-swap-amdvlk
 RUN wget https://github.com/GPUOpen-Drivers/AMDVLK/releases/download/v-2025.Q2.1/amdvlk_2025.Q2.1_amd64.deb && dpkg -i amdvlk_2025.Q2.1_amd64.deb
