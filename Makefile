@@ -7,7 +7,7 @@ DOCKER_CMD ?= podman
 
 ROCM_ARCHES ?= gfx1151,gfx1200,gfx1201,gfx1100,gfx1102,gfx1030,gfx1031,gfx1032
 
-build: build-vulkan build-rocm build-zluda
+build: build-vulkan build-rocm # build-zluda temporarily disabled because of CUDA header issues on Debian
 
 .PHONY: build-vulkan
 build-vulkan:
@@ -29,15 +29,13 @@ build-zluda:
 .PHONY: publish
 publish: build
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)
-	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-amdvlk
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm-igpu
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm
-	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-zluda
+	# $(DOCKER_CMD) push quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-zluda
 
 .PHONY: publish-latest
 publish-latest: publish
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:latest
-	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:latest-amdvlk
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:latest-rocm-igpu
 	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:latest-rocm
-	$(DOCKER_CMD) push quay.io/wvdschel/llama-swap:latest-zluda
+	# $(DOCKER_CMD) push quay.io/wvdschel/llama-swap:latest-zluda
