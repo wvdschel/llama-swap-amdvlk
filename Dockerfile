@@ -39,9 +39,6 @@ COPY --from=builder-vulkan /build/llama.cpp/build-vulkan/bin/llama-server /app/l
 COPY --from=builder-vulkan /build/llama.cpp/build-cpu/bin/llama-server /app/llama-server-cpu
 RUN ln -s /app/llama-server-vulkan /app/llama-server
 
-FROM llama-swap-vulkan AS llama-swap-amdvlk
-RUN wget https://github.com/GPUOpen-Drivers/AMDVLK/releases/download/v-2025.Q2.1/amdvlk_2025.Q2.1_amd64.deb && dpkg -i amdvlk_2025.Q2.1_amd64.deb
-
 FROM base-lts AS builder-rocm
 WORKDIR /build
 RUN cd /build
@@ -123,12 +120,6 @@ RUN ldd /app/llama-server
 
 FROM scratch AS llama-swap-vulkan-final
 COPY --from=llama-swap-vulkan / /
-ENV XDG_CACHE_HOME=/cache
-ENV LD_LIBRARY_PATH=/app
-ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
-
-FROM scratch AS llama-swap-amdvlk-final
-COPY --from=llama-swap-amdvlk / /
 ENV XDG_CACHE_HOME=/cache
 ENV LD_LIBRARY_PATH=/app
 ENTRYPOINT [ "/app/llama-swap", "-config", "/app/config.yaml" ]
