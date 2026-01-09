@@ -1,6 +1,7 @@
 FROM debian:testing AS base
 RUN apt-get update && apt-get dist-upgrade -yy
-RUN apt-get install -yy vulkan-tools libcurlpp0t64 wget
+RUN apt-get install -yy vulkan-tools libcurlpp0t64 wget libgomp1
+RUN apt-get clean
 
 FROM base AS builder
 WORKDIR /build
@@ -29,8 +30,6 @@ RUN cd /build/llama.cpp && cmake -B build-vulkan -DCMAKE_INSTALL_PREFIX=/opt/lla
 RUN cd /build/llama.cpp && nice cmake --build build-vulkan/ -j$(nproc)
 
 FROM base AS llama-swap-vulkan
-RUN apt-get clean
-RUN apt update -yy && apt upgrade -yy
 RUN mkdir -p /cache/mesa_shader_cache /cache/mesa_shader_cache_db /cache/radv_builtin_shaders
 RUN chmod -R a+rw /cache
 RUN mkdir /app

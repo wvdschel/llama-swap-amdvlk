@@ -32,7 +32,20 @@ macros:
   "latest-llama": >
     nice /app/llama-server
     --offline
-    --port ${PORT} --no-warmup -ngl 999
+    --port ${PORT} --no-warmup
+    --cache-type-k q8_0 --cache-type-v q8_0
+    --flash-attn on --cont-batching -np 1
+
+  "latest-llama-cpu": >
+    nice /app/llama-server-cpu
+    --offline -ngl 0
+    --port ${PORT} --no-warmup
+    --cache-type-k q8_0 --cache-type-v q8_0
+    --flash-attn on --cont-batching -np 1
+
+  "latest-ikllama": >
+    nice /app/ikllama-server
+    --port ${PORT} --no-warmup -ngl 0
     --cache-type-k q8_0 --cache-type-v q8_0
     --flash-attn on --cont-batching -np 1
 
@@ -46,8 +59,8 @@ models:
   # keys are the model names used in API requests
   "gemma3":
     cmd: |
-      ${latest-llama}
-      -hf unsloth/gemma-3-27b-it-qat-GGUF:Q4_0 -ctx-size 0
+      ${latest-llama-cpu}
+      -hf unsloth/gemma-3-27b-it-qat-GGUF:Q4_0 --ctx-size 0
     name: "Gemma3 27B QAT"
 
   "gpt-oss-20b":
@@ -59,28 +72,36 @@ models:
   "gpt-oss-120b":
     cmd: |
       ${latest-llama}
-      -m /cache/llama.cpp/gpt-oss-120b-Derestricted.i1-MXFP4_MOE.gguf --jinja --ctx-size 0
+      -m /cache/llama.cpp/gpt-oss-120b-Derestricted.i1-MXFP4_MOE.gguf --jinja --ctx-size 0 --cpu-moe
     name: "GPT-OSS 120b derestricted"
   
   "hermes-4.3-36b":
     cmd: |
       ${latest-llama}
-      -hf NousResearch/Hermes-4.3-36B-GGUF:Q6_K --ctx-size 0
-    name: "Hermes 4.3 36B Q6"
+      -hf mradermacher/Hermes-4.3-36B-i1-GGUF:IQ3_XS  --ctx-size 0
+    name: "Hermes 4.3 36B Q3"
+
+  "precog-24b":
+    cmd: |
+      ${latest-llama}
+      -hf bartowski/TheDrummer_Precog-24B-v1-GGUF:Q4_K_M --ctx-size 0
+    name: "TheDrummer Precog 24B v1 Q4"
 
   "minimax-m2":
     cmd: |
-       ${latest-llama} -hf bartowski/cerebras_MiniMax-M2-REAP-172B-A10B-GGUF:IQ4_XS --jinja --ctx-size 98304
-    name: "Minimax M2 REAP 172B Q4"
+       ${latest-llama-cpu} -hf moxin-org/MiniMax-M2-GGUF:MXFP4_MOE --jinja --ctx-size 0
+    name: "Minimax M2 Q4"
 
   "minimax-m2.1":
-    cmd: |
-       ${latest-llama} -hf mradermacher/MiniMax-M2.1-i1-GGUF:IQ3_XXS --jinja --ctx-size 98304
-    name: "Minimax M2.1 Q3"
+    #cmd: ${latest-llama} -hf mradermacher/MiniMax-M2.1-i1-GGUF:Q4_K_M --jinja -ngl 0 --ctx-size 0
+    cmd: ${latest-llama-cpu} -hf unsloth/MiniMax-M2.1-GGUF:Q4_K_XL --jinja --ctx-size 0
+    #cmd: ${latest-ikllama} -m /cache/llama.cpp/mradermacher_MiniMax-M2.1-i1-GGUF_MiniMax-M2.1.i1-Q4_K_M.gguf --jinja --ctx-size 0
+    name: "Minimax M2.1 Q4"
+
 
   "intellect-3":
     cmd: |
-       ${latest-llama} -hf bartowski/PrimeIntellect_INTELLECT-3-GGUF:Q5_K_S --jinja --batch-size 512 --ctx-size 0
+       ${latest-llama} -hf bartowski/PrimeIntellect_INTELLECT-3-GGUF:Q5_K_S --jinja --ctx-size 0
     name: "Intellect-3 Q5"
 
   "trinity-mini":
@@ -181,6 +202,7 @@ groups:
     members:
       - "gpt-oss-120b"
       - "hermes-4.3-36b"
+      - "precog-24b"
       - "intellect-3"
       - "minimax-m2"
       - "minimax-m2.1"

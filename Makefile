@@ -1,7 +1,7 @@
 # Uncomment and edit to build experimental versions
-# LLAMA_CPP_REPO = https://github.com/pwilkin/llama.cpp
-# LLAMA_CPP_VERSION = autoparser
-# IMAGE_TAG_SUFFIX = autoparser
+LLAMA_CPP_REPO = https://github.com/pwilkin/llama.cpp
+LLAMA_CPP_VERSION = autoparser
+IMAGE_TAG_SUFFIX = -autoparser
 
 LLAMA_SWAP_VERSION = v182
 LLAMA_CPP_REPO ?= https://github.com/ggml-org/llama.cpp
@@ -22,19 +22,19 @@ build: build-vulkan build-rocm # build-zluda temporarily disabled because of CUD
 .PHONY: build-vulkan
 build-vulkan:
 	$(DOCKER_CMD) build --target=llama-swap-vulkan-final --tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)$(IMAGE_TAG_SUFFIX) $(DOCKER_COMMON_ARGS) .
-	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap:latest
+	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION) quay.io/wvdschel/llama-swap:latest$(IMAGE_TAG_SUFFIX)
 
 .PHONY: build-rocm
 build-rocm:
 	$(DOCKER_CMD) build --target=llama-swap-rocm-final --tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm$(IMAGE_TAG_SUFFIX) --build-arg ROCM_ARCH="$(ROCM_ARCHES)" $(DOCKER_COMMON_ARGS) .
-	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm quay.io/wvdschel/llama-swap:latest-rocm
+	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm quay.io/wvdschel/llama-swap:latest-rocm$(IMAGE_TAG_SUFFIX)
 	$(DOCKER_CMD) build --target=llama-swap-rocm-igpu-final --tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm-igpu$(IMAGE_TAG_SUFFIX) --build-arg ROCM_ARCH="$(ROCM_ARCHES)" $(DOCKER_COMMON_ARGS) .
-	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm-igpu quay.io/wvdschel/llama-swap:latest-rocm-igpu
+	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-rocm-igpu quay.io/wvdschel/llama-swap:latest-rocm-igpu$(IMAGE_TAG_SUFFIX)
 
 .PHONY: build-zluda
 build-zluda:
 	$(DOCKER_CMD) build --target=llama-swap-zluda-final --tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-zluda$(IMAGE_TAG_SUFFIX) --build-arg LLAMA_SWAP_VERSION=$(LLAMA_SWAP_VERSION) --build-arg ROCM_ARCH="$(ROCM_ARCHES)"  $(DOCKER_COMMON_ARGS) .
-	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-zluda quay.io/wvdschel/llama-swap:latest-zluda
+	$(DOCKER_CMD) tag quay.io/wvdschel/llama-swap:$(LLAMA_SWAP_VERSION)-zluda$(IMAGE_TAG_SUFFIX) quay.io/wvdschel/llama-swap:latest-zluda$(IMAGE_TAG_SUFFIX)
 
 .PHONY: publish
 publish: build
