@@ -1,9 +1,9 @@
 # Uncomment and edit to build experimental versions
-LLAMA_CPP_REPO = https://github.com/pwilkin/llama.cpp
-LLAMA_CPP_VERSION = autoparser
-IMAGE_TAG_SUFFIX = -autoparser
+#LLAMA_CPP_REPO = https://github.com/pwilkin/llama.cpp
+#LLAMA_CPP_VERSION = autoparser
+#IMAGE_TAG_SUFFIX = -autoparser
 
-LLAMA_SWAP_VERSION = v182
+LLAMA_SWAP_VERSION = v183
 LLAMA_CPP_REPO ?= https://github.com/ggml-org/llama.cpp
 LLAMA_CPP_VERSION ?= master
 # Add PR numbers for unmerged PRs to include in this build here

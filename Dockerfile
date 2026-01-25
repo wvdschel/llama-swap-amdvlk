@@ -1,6 +1,6 @@
 FROM debian:testing AS base
 RUN apt-get update && apt-get dist-upgrade -yy
-RUN apt-get install -yy vulkan-tools libcurlpp0t64 wget libgomp1
+RUN apt-get install -yy vulkan-tools libcurlpp0t64 wget
 RUN apt-get clean
 
 FROM base AS builder
@@ -22,7 +22,7 @@ RUN cd /build/llama.cpp && nice cmake --build build-cpu/ -j$(nproc)
 ARG IKLLAMA_CPP_REPO
 ARG IKLLAMA_CPP_VERSION
 RUN git clone -b ${IKLLAMA_CPP_VERSION} ${IKLLAMA_CPP_REPO} --depth 1
-RUN cd /build/ik_llama.cpp && cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/ikllama.cpp -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DGGML_STATIC=ON -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS -DGGML_RPC=ON
+RUN cd /build/ik_llama.cpp && cmake -B build -DCMAKE_INSTALL_PREFIX=/opt/ikllama.cpp -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DGGML_STATIC=ON -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS -DGGML_RPC=ON -DCMAKE_INSTALL_RPATH="/usr/local/cuda-13.1/lib;\$ORIGIN"
 RUN cd /build/ik_llama.cpp && nice cmake --build build/ -j$(nproc)
 
 FROM builder AS builder-vulkan
@@ -36,6 +36,7 @@ RUN mkdir /app
 COPY --from=builder        /build/llama-swap/build/llama-swap-linux-amd64 /app/llama-swap
 COPY --from=builder        /build/llama.cpp/build-cpu/bin/llama-server /app/llama-server-cpu
 COPY --from=builder        /build/ik_llama.cpp/build/bin/llama-server /app/ikllama-server
+COPY --from=builder         /usr/lib/x86_64-linux-gnu/libgomp* /app/
 COPY --from=builder-vulkan /build/llama.cpp/build-vulkan/bin/llama-server /app/llama-server-vulkan
 RUN ln -s /app/llama-server-vulkan /app/llama-server
 
